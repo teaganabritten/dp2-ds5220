@@ -1,0 +1,28 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mta-job
+  namespace: default
+spec:
+  schedule: "*/15 * * * *" # Run every 15 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 10
+  failedJobsHistoryLimit: 10
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: iss-tracker
+              image: ghcr.io/teaganabritten/dp2-ds5220:latest
+              imagePullPolicy: Always
+              env:
+                - name: DYNAMO_TABLE
+                  value: "dp2-uup3cy-table"
+
+                - name: S3_BUCKET
+                  value: "dp2-uup3cy-bucket"
+
+                - name: AWS_REGION
+                  value: "us-east-1"
