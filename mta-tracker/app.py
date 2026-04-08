@@ -1,8 +1,10 @@
 import io
 import importlib
+import json
 import logging
 import os
 from collections import Counter
+from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 
 import boto3
@@ -22,6 +24,7 @@ TABLE_NAME = os.environ["DYNAMO_TABLE"]
 S3_BUCKET = os.environ["S3_BUCKET"]
 AWS_REGION = os.environ["AWS_REGION"]
 PLOT_KEY = os.environ.get("PLOT_KEY", "mta/status/latest.png")
+DATA_KEY = os.environ.get("DATA_KEY", "mta/data/latest.json")
 
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 s3_client = boto3.client("s3", region_name=AWS_REGION)
@@ -133,6 +136,30 @@ def upload_plot(buffer):
     logger.info("Uploaded plot to s3://%s/%s", S3_BUCKET, PLOT_KEY)
 
 
+def to_json_compatible(value):
+    if isinstance(value, list):
+        return [to_json_compatible(item) for item in value]
+    if isinstance(value, dict):
+        return {key: to_json_compatible(item) for key, item in value.items()}
+    if isinstance(value, Decimal):
+        if value % 1 == 0:
+            return int(value)
+        return float(value)
+    return value
+
+
+def upload_data_file(snapshots):
+    safe_snapshots = to_json_compatible(snapshots)
+    data_bytes = json.dumps(safe_snapshots, indent=2, sort_keys=True).encode("utf-8")
+    s3_client.put_object(
+        Bucket=S3_BUCKET,
+        Key=DATA_KEY,
+        Body=data_bytes,
+        ContentType="application/json",
+    )
+    logger.info("Uploaded data file to s3://%s/%s", S3_BUCKET, DATA_KEY)
+
+
 def main():
     feed = fetch_mta_data()
     if feed is None:
@@ -146,6 +173,7 @@ def main():
     if plot_buffer is None:
         raise SystemExit(1)
 
+    upload_data_file(snapshots)
     upload_plot(plot_buffer)
 
 
