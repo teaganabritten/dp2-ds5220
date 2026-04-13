@@ -19,10 +19,14 @@ spec:
               imagePullPolicy: Always
               env:
                 - name: DYNAMO_TABLE
-                  value: "dp2-uup3cy-table"
-
+                  valueFrom:
+                    configMapKeyRef:
+                      name: mta-config
+                      key: dynamo-table
                 - name: S3_BUCKET
-                  value: "dp2-uup3cy-bucket"
-
+                  valueFrom:
+                    configMapKeyRef:
+                      name: mta-config
+                      key: s3-bucket
                 - name: AWS_REGION
                   value: "us-east-1"
